@@ -1,0 +1,3 @@
+rootProject.name = "android-google-pay-sdk"
+include ':app'
+include ':dnasdk'

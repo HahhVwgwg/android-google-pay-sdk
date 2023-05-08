@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">android-google-pay-sdk</string>
+    <string name="login_title">Login</string>
+    <string name="email_hint">Email address</string>
+    <string name="password_hint">Password</string>
+    <string name="login_button">Log in</string>
+    <string name="forgot_password">Forgot password?</string>
+    <string name="google_pay">Google Pay</string>
+</resources>
