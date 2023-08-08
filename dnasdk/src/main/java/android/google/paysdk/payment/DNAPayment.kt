@@ -1,19 +1,25 @@
 package android.google.paysdk.payment
 
 import android.app.Activity
+import android.content.Intent
 import android.google.paysdk.data.model.AuthTokenRequest
+import android.google.paysdk.data.model.PaymentResponse
 import android.google.paysdk.data.model.PaymentResult
 import android.google.paysdk.data.model.googlePaymentData.GooglePaymentData
+import android.google.paysdk.data.model.request.AuthToken
 import android.google.paysdk.data.model.request.CardDetails
-import android.google.paysdk.data.model.request.CustomerDetails
 import android.google.paysdk.data.model.request.PaymentRequest
 import android.google.paysdk.data.network.getPaymentDataSource
 import android.google.paysdk.domain.DNAPaymentsErrorCode
 import android.google.paysdk.domain.Environment
 import android.google.paysdk.domain.SupportedNetworks
-import android.google.paysdk.utils.catchError
 import com.google.android.gms.tasks.Task
+import com.google.android.gms.wallet.PaymentData
 import com.google.android.gms.wallet.PaymentsClient
+import com.google.gson.Gson
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
 
 /**
@@ -40,6 +46,7 @@ object DNAPayment {
         paymentsClient: PaymentsClient,
         paymentRequest: PaymentRequest,
         authTokenRequest: AuthTokenRequest,
+        statusCallback: StatusCallback,
     ) {
 
         // Set the payment request and auth token request on the DNAPayment object.
@@ -50,10 +57,11 @@ object DNAPayment {
         GooglePayManagement.execute(
             paymentRequest.amount.toString(),
             paymentRequest.currency.toString(),
-            environment,
+            environment,    
             authTokenRequest.terminal,
             activity,
-            paymentsClient
+            paymentsClient,
+            statusCallback
         )
     }
 
@@ -86,70 +94,105 @@ object DNAPayment {
 
     /**
      * Executes transaction on merchant server
-     * @param googlePayData String
+     * @param data String from Google Pay
      */
-    suspend fun executeTransaction(googlePayData: GooglePaymentData, activity: Activity) {
+    fun executeTransaction(
+        data: Intent,
+        statusCallback: StatusCallback
+    ) {
+        val paymentData = PaymentData.getFromIntent(data)
+        val gson = Gson()
+        val googlePayData = gson.fromJson(
+            paymentData!!.toJson(),
+            GooglePaymentData::class.java
+        )
         val paymentService = getPaymentDataSource(environment.serverUrl)
-        try {
-            val getAuthToken = paymentService.getAuthToken(
-                grantType = authTokenRequest.grantType,
-                scope = authTokenRequest.scope,
-                clientId = authTokenRequest.clientId,
-                clientSecret = authTokenRequest.clientSecret,
-                invoiceId = authTokenRequest.invoiceId,
-                terminal = authTokenRequest.terminal,
-                amount = authTokenRequest.amount,
-                currency = authTokenRequest.currency,
-                paymentFormURL = authTokenRequest.paymentFormURL
-            )
 
-            paymentService.pay(
-                token = "Bearer ${getAuthToken.access_token}",
-                paymentRequest.copy(
-                    auth = getAuthToken,
-                    cardDetails = CardDetails(
-                        cryptogram = googlePayData.paymentMethodData?.tokenizationData?.token.orEmpty(),
-                        cardholderName = googlePayData.shippingAddress?.name.orEmpty()
-                    ),
-                    customerDetails = CustomerDetails(
-                        browserDetails = DataFactory.getBrowserDetails()
+        val getAuthTokenCall = paymentService.getAuthToken(
+            grantType = authTokenRequest.grantType,
+            scope = authTokenRequest.scope,
+            clientId = authTokenRequest.clientId,
+            clientSecret = authTokenRequest.clientSecret,
+            invoiceId = "1683194969490",
+            terminal = "8911a14f-61a3-4449-a1c1-7a314ee5774c",
+            amount = 0.8,
+            currency = authTokenRequest.currency,
+            paymentFormURL = authTokenRequest.paymentFormURL
+        )
+
+        getAuthTokenCall.enqueue(object : Callback<AuthToken> {
+            override fun onResponse(call: Call<AuthToken>, response: Response<AuthToken>) {
+                if (response.isSuccessful) {
+                    val getAuthToken = response.body()
+
+                    val payCall = paymentService.pay(
+                        token = "Bearer ${getAuthToken?.access_token}",
+                        paymentRequest.copy(
+                            auth = getAuthToken,
+                            cardDetails = CardDetails(
+                                cryptogram = googlePayData.paymentMethodData?.tokenizationData?.token.orEmpty(),
+                                cardholderName = googlePayData.shippingAddress?.name.orEmpty()
+                            ),
+                            customerDetails = paymentRequest.customerDetails.copy(
+                                browserDetails = DataFactory.getBrowserDetails()
+                            )
+                        )
+                    )
+
+                    payCall.enqueue(object : Callback<PaymentResponse> {
+                        override fun onResponse(
+                            call: Call<PaymentResponse>,
+                            response: Response<PaymentResponse>
+                        ) {
+                            if (response.isSuccessful) {
+                                statusCallback.onResponse(PaymentResult(true, null))
+                            } else {
+                                val message: android.google.paysdk.data.model.APIError =
+                                    Gson().fromJson(
+                                        response.errorBody()?.charStream(),
+                                        android.google.paysdk.data.model.APIError::class.java
+                                    )
+
+                                statusCallback.onResponse(
+                                    PaymentResult(
+                                        false,
+                                        DNAPaymentsErrorCode.SERVER_ERROR,
+                                        message.message
+                                    )
+                                )
+                            }
+                        }
+
+                        override fun onFailure(call: Call<PaymentResponse>, t: Throwable) {
+                            statusCallback.onResponse(
+                                PaymentResult(
+                                    false,
+                                    null,
+                                    t.message
+                                )
+                            )
+                        }
+                    })
+                } else {
+                    statusCallback.onResponse(
+                        PaymentResult(
+                            false,
+                            null,
+                            "Failed to get auth token"
+                        )
+                    )
+                }
+            }
+
+            override fun onFailure(call: Call<AuthToken>, t: Throwable) {
+                statusCallback.onResponse(
+                    PaymentResult(
+                        false,
+                        null,
+                        t.message
                     )
                 )
-            )
-            returnsResult(activity, true, null)
-        } catch (e: Exception) {
-            val errorPaymentResult = e.catchError()
-
-            activity.runOnUiThread {
-                returnsResult(
-                    activity,
-                    false,
-                    errorPaymentResult.errorCode,
-                    errorPaymentResult.errorDescription
-                )
             }
-        }
-    }
-
-
-    /**
-     * Returns payment result to main activity
-     *
-     * @param isSuccess Boolean
-     * @param errorCode DNAPaymentsErrorCode?
-     */
-    fun returnsResult(
-        activity: Activity,
-        isSuccess: Boolean,
-        errorCode: DNAPaymentsErrorCode?,
-        errorDescription: String? = null
-    ) {
-        (activity as DNAPaymentsActivity).handlePaymentResult(
-            PaymentResult(
-                isSuccess,
-                errorCode,
-                errorDescription
-            )
-        )
+        })
     }
 }

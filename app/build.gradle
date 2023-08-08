@@ -3,6 +3,10 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def apikeyPropertiesFile = rootProject.file("apikey.properties")
+def apikeyProperties = new Properties()
+apikeyProperties.load(new FileInputStream(apikeyPropertiesFile))
+
 android {
     compileSdk 33
 
@@ -19,10 +23,20 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            keyAlias apikeyProperties['KEY_ALIAS']
+            keyPassword apikeyProperties['KEY_PASSWORD']
+            storeFile file(apikeyProperties['STORE_FILE'])
+            storePassword apikeyProperties['STORE_PASSWORD']
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
     compileOptions {
@@ -41,8 +55,8 @@ android {
 
 
 dependencies {
-//    implementation project(path: ':dnasdk')
-    implementation (fileTree(dir: "libs", include: ["dnasdk-release.aar"]))
+    implementation project(path: ':dnasdk')
+//    implementation (fileTree(dir: "libs", include: ["dnasdk-release.aar"]))
 
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.3.1'

@@ -9,7 +9,7 @@ data class AuthTokenRequest(
     @SerializedName("client_secret") val clientSecret: String,
     @SerializedName("invoice_id") val invoiceId: String,
     @SerializedName("terminal") val terminal: String,
-    @SerializedName("amount") val amount: Int,
+    @SerializedName("amount") val amount: Double,
     @SerializedName("currency") val currency: String,
     @SerializedName("payment_form_url") val paymentFormURL: String
 )

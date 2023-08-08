@@ -13,9 +13,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SampleProject">
         <activity
-            android:name=".ExampleActivity"
+            android:name=".DNAPaymentsActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.SampleProject">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -1,14 +1,15 @@
 package android.google.paysdk.payment
 
 import android.app.Activity
-import com.google.android.gms.tasks.Task
-import com.google.android.gms.wallet.*
-import org.json.JSONArray
-import org.json.JSONObject
+import android.google.paysdk.data.model.PaymentResult
 import android.google.paysdk.data.model.request.*
 import android.google.paysdk.domain.DNAPaymentsErrorCode
 import android.google.paysdk.domain.Environment
 import android.google.paysdk.domain.SupportedNetworks
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.wallet.*
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Google Pay Management
@@ -19,7 +20,7 @@ object GooglePayManagement {
     const val GOOGLE_PAYMENT_CODE_RESULT = 985
 
     private val SUPPORTED_METHODS = listOf(
-        "PAN_ONLY"
+        "CRYPTOGRAM_3DS"
     )
 
     // The name of your payment processor / gateway. Please refer to their documentation for
@@ -139,13 +140,7 @@ object GooglePayManagement {
             .put("totalPrice", price)
             .put("currencyCode", currency)
 
-        additionalParams.put("billingAddressRequired", true)
-
-        additionalParams
-            .put(
-                "billingAddressParameters", JSONObject()
-                    .put("format", "FULL").put("phoneNumberRequired", false)
-            )
+        additionalParams.put("billingAddressRequired", false)
 
         paymentDataRequestJson
             .put(
@@ -158,7 +153,7 @@ object GooglePayManagement {
                     )
             )
 
-        paymentDataRequestJson.put("shippingAddressRequired", true)
+        paymentDataRequestJson.put("shippingAddressRequired", false)
         paymentDataRequestJson.put("emailRequired", true)
 
         paymentDataRequestJson.put("transactionInfo", transactionJson)
@@ -233,34 +228,39 @@ object GooglePayManagement {
         environment: Environment?,
         gatewayMerchantId: String,
         activity: Activity,
-        paymentsClient: PaymentsClient
+        paymentsClient: PaymentsClient,
+        statusCallback: StatusCallback
     ) {
         if (amount == null) {
-            DNAPayment.returnsResult(
-                activity,
-                false,
-                DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
-                "amount is required"
+
+            statusCallback.onResponse(
+                PaymentResult(
+                    false,
+                    DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
+                    "Amount is required"
+                )
             )
             return
         }
 
         if (environment == null) {
-            DNAPayment.returnsResult(
-                activity,
-                false,
-                DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
-                "Environment type is required"
+            statusCallback.onResponse(
+                PaymentResult(
+                    false,
+                    DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
+                    "Environment type is required"
+                )
             )
             return
         }
 
         if (currency == null) {
-            DNAPayment.returnsResult(
-                activity,
-                false,
-                DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
-                "currency is required"
+            statusCallback.onResponse(
+                PaymentResult(
+                    false,
+                    DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
+                    "Currency is required"
+                )
             )
             return
         }

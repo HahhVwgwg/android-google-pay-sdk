@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName
 
 data class PaymentResponse(
     @SerializedName("accountId") var accountId: String? = null,
-    @SerializedName("amount") var amount: Int? = null,
+    @SerializedName("amount") var amount: Double? = null,
     @SerializedName("authCode") var authCode: String? = null,
     @SerializedName("authDateTimeUTC") var authDateTimeUTC: String? = null,
     @SerializedName("avsHouseNumberResult") var avsHouseNumberResult: String? = null,
