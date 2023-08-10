@@ -1,14 +1,15 @@
 package android.google.paysdk.payment
 
-import android.app.Activity
+import android.content.Context
 import android.google.paysdk.data.model.AuthTokenRequest
 import android.google.paysdk.data.model.PaymentResult
+import android.google.paysdk.data.model.StatusCallback
 import android.google.paysdk.data.model.googlePaymentData.GooglePaymentData
 import android.google.paysdk.data.model.request.CardDetails
 import android.google.paysdk.data.model.request.CustomerDetails
 import android.google.paysdk.data.model.request.PaymentRequest
 import android.google.paysdk.data.network.getPaymentDataSource
-import android.google.paysdk.domain.DNAPaymentsErrorCode
+import android.google.paysdk.domain.DataFactory
 import android.google.paysdk.domain.Environment
 import android.google.paysdk.domain.SupportedNetworks
 import android.google.paysdk.utils.catchError
@@ -22,40 +23,8 @@ import com.google.android.gms.wallet.PaymentsClient
  */
 object DNAPayment {
     private lateinit var environment: Environment
-    private lateinit var paymentRequest: PaymentRequest
-    private lateinit var authTokenRequest: AuthTokenRequest
-
-    /**
-     * Executes Google Pay.
-     *
-     * @param activity The activity that is currently in focus.
-     * @param environment The environment to use for the payment request.
-     * @param paymentsClient The PaymentsClient object to use to create the payment request.
-     * @param paymentRequest The payment request to send to Google Pay.
-     * @param authTokenRequest The auth token request to send to Google Pay.
-     */
-    fun execute(
-        activity: Activity,
-        environment: Environment,
-        paymentsClient: PaymentsClient,
-        paymentRequest: PaymentRequest,
-        authTokenRequest: AuthTokenRequest,
-    ) {
-
-        // Set the payment request and auth token request on the DNAPayment object.
-        DNAPayment.paymentRequest = paymentRequest
-        DNAPayment.authTokenRequest = authTokenRequest
-
-        // Execute the Google Pay payment request.
-        GooglePayManagement.execute(
-            paymentRequest.amount.toString(),
-            paymentRequest.currency.toString(),
-            environment,
-            authTokenRequest.terminal,
-            activity,
-            paymentsClient
-        )
-    }
+    lateinit var paymentRequest: PaymentRequest
+    lateinit var authTokenRequest: AuthTokenRequest
 
     /**
      * Initializes Google Pay context.
@@ -66,12 +35,12 @@ object DNAPayment {
      * @return A PaymentsClient object that can be used to create payment requests.
      */
     fun init(
-        activity: Activity,
+        context: Context,
         environment: Environment,
         supportedNetworks: List<SupportedNetworks> = SupportedNetworks.values().asList()
     ): PaymentsClient {
         DNAPayment.environment = environment
-        return GooglePayManagement.init(activity, environment, supportedNetworks)
+        return GooglePayManagement.init(context, environment, supportedNetworks)
     }
 
     /**
@@ -88,7 +57,10 @@ object DNAPayment {
      * Executes transaction on merchant server
      * @param googlePayData String
      */
-    suspend fun executeTransaction(googlePayData: GooglePaymentData, activity: Activity) {
+    suspend fun executeTransaction(
+        googlePayData: GooglePaymentData,
+        statusCallback: StatusCallback
+    ) {
         val paymentService = getPaymentDataSource(environment.serverUrl)
         try {
             val getAuthToken = paymentService.getAuthToken(
@@ -116,40 +88,17 @@ object DNAPayment {
                     )
                 )
             )
-            returnsResult(activity, true, null)
+            statusCallback.onResponse(PaymentResult(true, null))
         } catch (e: Exception) {
             val errorPaymentResult = e.catchError()
 
-            activity.runOnUiThread {
-                returnsResult(
-                    activity,
+            statusCallback.onResponse(
+                PaymentResult(
                     false,
                     errorPaymentResult.errorCode,
                     errorPaymentResult.errorDescription
                 )
-            }
-        }
-    }
-
-
-    /**
-     * Returns payment result to main activity
-     *
-     * @param isSuccess Boolean
-     * @param errorCode DNAPaymentsErrorCode?
-     */
-    fun returnsResult(
-        activity: Activity,
-        isSuccess: Boolean,
-        errorCode: DNAPaymentsErrorCode?,
-        errorDescription: String? = null
-    ) {
-        (activity as DNAPaymentsActivity).handlePaymentResult(
-            PaymentResult(
-                isSuccess,
-                errorCode,
-                errorDescription
             )
-        )
+        }
     }
 }

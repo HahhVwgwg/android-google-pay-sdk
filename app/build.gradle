@@ -41,8 +41,8 @@ android {
 
 
 dependencies {
-//    implementation project(path: ':dnasdk')
-    implementation (fileTree(dir: "libs", include: ["dnasdk-release.aar"]))
+    implementation project(path: ':dnasdk')
+//    implementation (fileTree(dir: "libs", include: ["dnasdk-release.aar"]))
 
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.3.1'

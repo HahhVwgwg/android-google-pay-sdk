@@ -9,7 +9,7 @@ data class PaymentRequest(
     val invoiceId: String? = null,
     val description: String? = null,
     val merchantCustomData: String? = null,
-    val amount: Int? = null,
+    val amount: Double? = null,
     val currency: String? = null,
     val entryMode: String? = null,
     val paymentSettings: PaymentSettings,

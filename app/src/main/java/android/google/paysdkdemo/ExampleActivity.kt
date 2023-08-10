@@ -2,15 +2,24 @@ package android.google.paysdkdemo
 
 import android.google.paysdk.data.model.AuthTokenRequest
 import android.google.paysdk.data.model.PaymentResult
-import android.google.paysdk.data.model.request.*
+import android.google.paysdk.data.model.StatusCallback
+import android.google.paysdk.data.model.request.AccountDetails
+import android.google.paysdk.data.model.request.AddressInfo
+import android.google.paysdk.data.model.request.CustomerDetails
+import android.google.paysdk.data.model.request.DeliveryDetails
+import android.google.paysdk.data.model.request.OrderLine
+import android.google.paysdk.data.model.request.PaymentRequest
+import android.google.paysdk.data.model.request.PaymentSettings
 import android.google.paysdk.domain.Environment
 import android.google.paysdk.payment.DNAPayment
-import android.google.paysdk.payment.DNAPaymentsActivity
+import android.google.paysdk.payment.GooglePayHelper
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.wallet.PaymentsClient
 
@@ -33,11 +42,13 @@ import com.google.android.gms.wallet.PaymentsClient
  *
  * @author DNA Network
  */
-class ExampleActivity : DNAPaymentsActivity() {
+class ExampleActivity : AppCompatActivity() {
 
     private lateinit var payBtn: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var paymentsClient: PaymentsClient
+
+    private lateinit var googlePayHelper: GooglePayHelper
 
     /**
      * onCreate method
@@ -55,6 +66,12 @@ class ExampleActivity : DNAPaymentsActivity() {
         // Environment TEST or PRODUCTION
         paymentsClient =
             DNAPayment.init(this, Environment.TEST)
+        googlePayHelper = GooglePayHelper(Fragment(), statusCallback = object : StatusCallback {
+            override fun onResponse(paymentResult: PaymentResult) {
+                handlePaymentResult(paymentResult)
+            }
+        })
+        lifecycle.addObserver(googlePayHelper)
 
         DNAPayment.isPaymentPossible(paymentsClient).addOnCompleteListener { task ->
             try {
@@ -63,7 +80,8 @@ class ExampleActivity : DNAPaymentsActivity() {
                     // show Google Pay as a payment option
                     payBtn.visibility = View.VISIBLE
                 } else {
-                    Toast.makeText(this, "isPaymentPossible return false", Toast.LENGTH_LONG).show()
+
+                    Toast.makeText(this, "$result", Toast.LENGTH_LONG).show()
                 }
             } catch (e: ApiException) {
                 Toast.makeText(this, "isPaymentPossible exception catched", Toast.LENGTH_LONG)
@@ -81,10 +99,8 @@ class ExampleActivity : DNAPaymentsActivity() {
      */
     fun onPayClick(view: View) {
         progressBar.visibility = View.VISIBLE
-        DNAPayment.execute(
-            this,
-            Environment.TEST,
-            paymentsClient,
+        googlePayHelper.execute(
+            paymentsClient = paymentsClient,
             paymentRequest = PaymentRequest(
                 currency = "GBP",
                 paymentMethod = "googlepay",
@@ -133,8 +149,9 @@ class ExampleActivity : DNAPaymentsActivity() {
                 ),
                 deliveryType = "service",
                 invoiceId = "1683194969490",
-                amount = 24
-            ), authTokenRequest = AuthTokenRequest(
+                amount = 24.0
+            ),
+            authTokenRequest = AuthTokenRequest(
                 grantType = "client_credentials",
                 scope = "payment integration_hosted integration_embedded integration_seamless",
                 clientId = "Test Merchant",
@@ -153,7 +170,7 @@ class ExampleActivity : DNAPaymentsActivity() {
      *
      * @param result PaymentResult
      */
-    override fun handlePaymentResult(result: PaymentResult) {
+    private fun handlePaymentResult(result: PaymentResult) {
         progressBar.visibility = View.GONE
 
         if (result.success) {

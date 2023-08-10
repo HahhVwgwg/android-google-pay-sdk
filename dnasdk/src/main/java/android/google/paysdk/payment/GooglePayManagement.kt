@@ -1,25 +1,21 @@
 package android.google.paysdk.payment
 
-import android.app.Activity
+import android.content.Context
+import android.google.paysdk.data.model.request.*
+import android.google.paysdk.domain.Environment
+import android.google.paysdk.domain.SupportedNetworks
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.wallet.*
 import org.json.JSONArray
 import org.json.JSONObject
-import android.google.paysdk.data.model.request.*
-import android.google.paysdk.domain.DNAPaymentsErrorCode
-import android.google.paysdk.domain.Environment
-import android.google.paysdk.domain.SupportedNetworks
 
 /**
  * Google Pay Management
  */
 object GooglePayManagement {
 
-    // Technical code used for specifying the result of WebView activity
-    const val GOOGLE_PAYMENT_CODE_RESULT = 985
-
     private val SUPPORTED_METHODS = listOf(
-        "PAN_ONLY"
+        "CRYPTOGRAM_3DS"
     )
 
     // The name of your payment processor / gateway. Please refer to their documentation for
@@ -108,13 +104,13 @@ object GooglePayManagement {
      * @param mode String
      * @return PaymentsClient
      */
-    private fun initPaymentsClient(activity: Activity, environment: Environment): PaymentsClient {
+    private fun initPaymentsClient(context: Context, environment: Environment): PaymentsClient {
         val builder = Wallet.WalletOptions.Builder()
         builder.setEnvironment(
             if (environment == Environment.TEST) WalletConstants.ENVIRONMENT_TEST
             else WalletConstants.ENVIRONMENT_PRODUCTION
         )
-        return Wallet.getPaymentsClient(activity, builder.build())
+        return Wallet.getPaymentsClient(context, builder.build())
     }
 
     /**
@@ -125,7 +121,7 @@ object GooglePayManagement {
      * @param gatewayMerchantId String
      * @return PaymentDataRequest
      */
-    private fun preparePaymentDataRequest(
+    fun preparePaymentDataRequest(
         price: String,
         currency: String,
         gatewayMerchantId: String
@@ -139,13 +135,7 @@ object GooglePayManagement {
             .put("totalPrice", price)
             .put("currencyCode", currency)
 
-        additionalParams.put("billingAddressRequired", true)
-
-        additionalParams
-            .put(
-                "billingAddressParameters", JSONObject()
-                    .put("format", "FULL").put("phoneNumberRequired", false)
-            )
+        additionalParams.put("billingAddressRequired", false)
 
         paymentDataRequestJson
             .put(
@@ -158,7 +148,7 @@ object GooglePayManagement {
                     )
             )
 
-        paymentDataRequestJson.put("shippingAddressRequired", true)
+        paymentDataRequestJson.put("shippingAddressRequired", false)
         paymentDataRequestJson.put("emailRequired", true)
 
         paymentDataRequestJson.put("transactionInfo", transactionJson)
@@ -198,12 +188,12 @@ object GooglePayManagement {
      * @param supportedNetworks String
      */
     internal fun init(
-        activity: Activity,
+        context: Context,
         environment: Environment,
         supportedNetworks: List<SupportedNetworks>
     ): PaymentsClient {
         GooglePayManagement.supportedNetworks = supportedNetworks.map { it.value }
-        return initPaymentsClient(activity, environment)
+        return initPaymentsClient(context, environment)
     }
 
     /**
@@ -215,62 +205,6 @@ object GooglePayManagement {
     internal fun isPossible(paymentsClient: PaymentsClient): Task<Boolean> {
         val isReadyToPayRequest = prepareIsReadyToPayRequest()
         return paymentsClient.isReadyToPay(isReadyToPayRequest)
-    }
-
-    /**
-     * Executes Google Pay
-     *
-     * @param amount String
-     * @param currency String
-     * @param mode String
-     * @param gatewayMerchantId String
-     * @param activity Activity
-     * @param paymentsClient PaymentsClient
-     */
-    internal fun execute(
-        amount: String?,
-        currency: String?,
-        environment: Environment?,
-        gatewayMerchantId: String,
-        activity: Activity,
-        paymentsClient: PaymentsClient
-    ) {
-        if (amount == null) {
-            DNAPayment.returnsResult(
-                activity,
-                false,
-                DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
-                "amount is required"
-            )
-            return
-        }
-
-        if (environment == null) {
-            DNAPayment.returnsResult(
-                activity,
-                false,
-                DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
-                "Environment type is required"
-            )
-            return
-        }
-
-        if (currency == null) {
-            DNAPayment.returnsResult(
-                activity,
-                false,
-                DNAPaymentsErrorCode.PAYMENT_DATA_ERROR,
-                "currency is required"
-            )
-            return
-        }
-
-        val paymentDataRequest = preparePaymentDataRequest(amount, currency, gatewayMerchantId)
-        AutoResolveHelper.resolveTask(
-            paymentsClient.loadPaymentData(paymentDataRequest),
-            activity,
-            GOOGLE_PAYMENT_CODE_RESULT
-        )
     }
 }
 

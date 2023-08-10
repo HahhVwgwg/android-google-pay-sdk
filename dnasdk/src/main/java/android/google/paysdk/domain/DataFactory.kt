@@ -1,4 +1,4 @@
-package android.google.paysdk.payment
+package android.google.paysdk.domain
 
 import android.google.paysdk.data.model.request.BrowserDetails
 
